@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shoot Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: black; color: white; font-family: sans-serif;
+      display: flex; flex-direction: column; align-items: center;
+      height: 100vh; overflow: hidden;
+    }
+    h1 { font-size: 5vw; margin-top: 10px; }
+    #gameArea {
+      position: relative; width: 90vw; max-width: 400px;
+      height: 70vh; background-color: #111;
+      border: 3px solid white; margin-top: 2vh; overflow: hidden;
+    }
+    #player {
+      position: absolute; bottom: 10px; left: 45%;
+      font-size: 7vw;
+    }
+    .enemy {
+      position: absolute; font-size: 7vw;
+    }
+    .bullet {
+      position: absolute; width: 1vw; height: 3vh;
+      background-color: yellow;
+    }
+    #gameOverText {
+      position: absolute; top: 40%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 6vw; color: red; display: none; text-align: center;
+    }
+
+    /* ✅ LEVEL SCORE DISPLAY ADDED */
+    #scoreBoard {
+      font-size: 4vw; margin-top: 1vh;
+    }
+
+    #startBtn, #restartBtn {
+      margin-top: 2vh; padding: 1vh 2vh;
+      font-size: 4vw; border: none; border-radius: 8px;
+      background-color: white; color: black;
+    }
+    #restartBtn { display: none; }
+    #controls {
+      display: flex; justify-content: center;
+      gap: 10vw; margin-top: 2vh;
+    }
+    .control-btn {
+      padding: 1vh 2vh; font-size: 5vw;
+      background-color: white; color: black;
+      border: none; border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🚀 Shoot Game</h1>
+
+  <!-- ✅ LEVEL TEXT ADDED -->
+  <div id="scoreBoard">Score: 0 | Level: 1</div>
+
+  <div id="gameArea">
+    <div id="player">🚀</div>
+    <div id="gameOverText">💥 Game Over</div>
+  </div>
+
+  <button id="startBtn">Start Game</button>
+  <button id="restartBtn">Restart Game</button>
+
+  <div id="controls">
+    <button class="control-btn" onclick="moveLeft()">⬅️</button>
+    <button class="control-btn" onclick="shootBullet()">🔫</button>
+    <button class="control-btn" onclick="moveRight()">➡️</button>
+  </div>
+
+  <!-- 🔊 Audio -->
+  <audio id="bgMusic" src="bg-music.mp3" loop></audio>
+  <audio id="shootSound" src="shoot.mp3"></audio>
+  <audio id="explodeSound" src="explode.mp3"></audio>
+
+  <script>
+    const player = document.getElementById('player');
+    const gameArea = document.getElementById('gameArea');
+    const gameOverText = document.getElementById('gameOverText');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const scoreBoard = document.getElementById('scoreBoard');
+    const bgMusic = document.getElementById('bgMusic');
+    const shootSound = document.getElementById('shootSound');
+    const explodeSound = document.getElementById('explodeSound');
+
+    let gameRunning = false;
+    let enemyInterval;
+
+    // ✅ LEVEL SYSTEM VARIABLES ADDED
+    let score = 0;
+    let level = 1;
+    let enemySpeed = 50;
+
+    startBtn.addEventListener('click', startGame);
+    restartBtn.addEventListener('click', startGame);
+    document.addEventListener('keydown', handleKey);
+
+    function startGame() {
+      score = 0;
+      level = 1;
+      enemySpeed = 50;
+      updateScore();
+      startBtn.style.display = 'none';
+      restartBtn.style.display = 'none';
+      gameOverText.style.display = 'none';
+      gameRunning = true;
+
+      player.style.left = '45%';
+
+      document.querySelectorAll('.enemy').forEach(e => e.remove());
+      document.querySelectorAll('.bullet').forEach(b => b.remove());
+
+      enemyInterval = setInterval(spawnEnemy, 1000);
+      bgMusic.currentTime = 0;
+      bgMusic.play();
+    }
+
+    function endGame() {
+      gameRunning = false;
+      clearInterval(enemyInterval);
+      gameOverText.style.display = 'block';
+      restartBtn.style.display = 'inline-block';
+      bgMusic.pause();
+      explodeSound.play();
+    }
+
+    // ✅ UPDATED TO HANDLE LEVEL & SPEED CHANGE
+    function updateScore() {
+      scoreBoard.innerText = `Score: ${score} | Level: ${level}`;
+
+      let newLevel = Math.floor(score / 50) + 1;
+      if (newLevel !== level) {
+        level = newLevel;
+        enemySpeed = Math.max(10, 50 - (level * 5));
+      }
+    }
+
+    function handleKey(e) {
+      if (!gameRunning) return;
+      if (e.key === 'ArrowLeft') moveLeft();
+      else if (e.key === 'ArrowRight') moveRight();
+      else if (e.key === ' ') shootBullet();
+    }
+
+    function moveLeft() {
+      let left = parseFloat(player.style.left);
+      if (left > 0) player.style.left = (left - 10) + '%';
+    }
+
+    function moveRight() {
+      let left = parseFloat(player.style.left);
+      if (left < 90) player.style.left = (left + 10) + '%';
+    }
+
+    function shootBullet() {
+      if (!gameRunning) return;
+
+      shootSound.currentTime = 0;
+      shootSound.play();
+
+      const bullet = document.createElement('div');
+      bullet.classList.add('bullet');
+      bullet.style.left = (player.offsetLeft + player.offsetWidth / 2 - 2) + 'px';
+      bullet.style.bottom = '50px';
+      gameArea.appendChild(bullet);
+
+      const interval = setInterval(() => {
+        let bottom = parseInt(bullet.style.bottom);
+        if (bottom > gameArea.offsetHeight) {
+          bullet.remove();
+          clearInterval(interval);
+        } else {
+          bullet.style.bottom = bottom + 10 + 'px';
+          checkBulletHit(bullet, interval);
+        }
+      }, 20);
+    }
+
+    function spawnEnemy() {
+      const enemy = document.createElement('div');
+      enemy.classList.add('enemy');
+      enemy.innerText = '✈️';
+      enemy.style.left = Math.floor(Math.random() * (gameArea.offsetWidth - 30)) + 'px';
+      enemy.style.top = '0px';
+      gameArea.appendChild(enemy);
+
+      const interval = setInterval(() => {
+        if (!gameRunning) {
+          enemy.remove();
+          clearInterval(interval);
+          return;
+        }
+
+        let top = parseInt(enemy.style.top);
+        if (top > gameArea.offsetHeight - 40) {
+          enemy.remove();
+          clearInterval(interval);
+        } else {
+          enemy.style.top = top + 5 + 'px';
+
+          if (checkCollision(enemy, player)) {
+            enemy.remove();
+            clearInterval(interval);
+            endGame();
+          }
+        }
+      }, enemySpeed); // ✅ HERE SPEED GETS UPDATED BY LEVEL
+    }
+
+    function checkBulletHit(bullet, interval) {
+      const enemies = document.querySelectorAll('.enemy');
+      enemies.forEach(enemy => {
+        if (checkCollision(bullet, enemy)) {
+          bullet.remove();
+          enemy.remove();
+          clearInterval(interval);
+          explodeSound.currentTime = 0;
+          explodeSound.play();
+          score += 10;
+          updateScore();
+        }
+      });
+    }
+
+    function checkCollision(a, b) {
+      const aRect = a.getBoundingClientRect();
+      const bRect = b.getBoundingClientRect();
+      return !(
+        aRect.bottom < bRect.top ||
+        aRect.top > bRect.bottom ||
+        aRect.right < bRect.left ||
+        aRect.left > bRect.right
+      );
+    }
+  </script>
+</body>
+</html>
